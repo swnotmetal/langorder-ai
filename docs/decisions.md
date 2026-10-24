@@ -81,3 +81,33 @@ Each entry is one decision, why we made it, what we rejected, and when we would 
 **Rejected.** A fallback model list and exponential-retry wrappers. They would hide the failure modes this project exists to demonstrate.
 
 **Revisit when.** Never under the current policy; any change must come from an AGENTS.md update, not from code.
+
+## 9. LangGraph is a recoverable orchestrator, not an approval workflow
+
+**Decision.** LangGraph's job is to sequence multi-step AI reasoning (extraction, inventory tool
+calls, conditional routing) around deterministic validation, persist run state, and reconcile
+already-committed external results with what happens next. It does not approve anything. On the
+order path it uses `interrupt` + `Command({ resume })`, resumed by `review-sync.ts` reading ERP
+`docstatus`; on the inquiry path it runs to completion with no interrupt at all.
+
+**Why.** Two different recovery models exist, and conflating them was the source of the framing
+confusion this document now corrects:
+
+- **Order path** — durable (`data/checkpoints.sqlite`), resumable: the graph waits on an external
+  event (a human submitting or cancelling the draft in ERPNext), so a checkpoint is the only thing
+  that connects "what we proposed" to "what the ERP says happened". The digest guard compares the
+  ERP's `custom_review_digest` (= `digest(draft)`) against the checkpoint's draft — *not* against
+  the interrupt's `revision` (= `digest([sources, draft])`), a mismatch that `test/review-sync.test.ts`
+  now pins.
+- **Inquiry path** — in-memory, not resumable, and that is correct: there is no interrupt to resume,
+  so persistence would only add a growing artifact no consumer reads. Its recovery is **idempotent
+  re-drive**: an un-filed message is simply processed again on the next run, keyed by `Message-ID`.
+
+**Rejected.** Recasting the order interrupt as an independent business event *before* measuring.
+Removing the checkpoint would drop the snapshot of the model's proposal at decision time — the
+evidence the portfolio exists to show — and would move the complexity from state into
+auditability, not remove it.
+
+**Revisit when.** After the four recovery behaviours are demonstrated (long wait, process restart,
+ERP state change, revision mismatch — three of which are already tested), and only if a concrete
+cost of the checkpoint shows up.

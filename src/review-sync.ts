@@ -1,5 +1,5 @@
 import { Command } from '@langchain/langgraph';
-import { orderKey, type Draft } from './domain.js';
+import { digest, orderKey, type Draft } from './domain.js';
 import { type ERP } from './erp.js';
 
 // The approval decision lives in ERPNext, not in this application. A sales person opens the draft
@@ -16,7 +16,7 @@ type PendingReview = { kind?: string; revision?: string; erpDocument?: string };
 export type ReviewSyncGraph = {
   getState: (config: { configurable: { thread_id: string } }) => Promise<{
     values: { draft?: Draft };
-    tasks: { interrupts: { value: unknown }[] }[];
+    tasks: { interrupts: { value?: unknown }[] }[];
   }>;
   stream: (input: unknown, config: { configurable: { thread_id: string } }) => Promise<AsyncIterable<unknown>>;
 };
@@ -77,10 +77,17 @@ export async function reconcileErpReviews(options: {
     }
 
     // The digest guards against resuming with content that no longer matches what the ERP holds.
-    if (erpState && erpState.digest && erpState.digest !== pending.revision) {
+    // The ERP stores `custom_review_digest = digest(draft)`, so it must be compared against the
+    // draft in this checkpoint — not against `pending.revision`, which is `digest([sources, draft])`
+    // and therefore can never equal it.
+    if (erpState && erpState.digest && erpState.digest !== digest(draft)) {
       action = 'reject';
       reason = 'the ERP document no longer matches the proposal this workflow made';
     }
+    // The decision schema requires a non-empty actor; a resume with an empty actor would re-enter
+    // the interrupt forever and the order would never resolve. ERPNext always sets `modified_by`,
+    // so this only fires on a malformed record — but it must not wedge the loop.
+    if (!actor) actor = 'unknown';
 
     const decision = { action, revision: pending.revision, actor, reason, source: 'erpnext' as const, erpDocument: pending.erpDocument };
     result.resumed.push({ threadId, action, erpDocument: pending.erpDocument, actor, reason });

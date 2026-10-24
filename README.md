@@ -59,9 +59,11 @@ There is nothing to "roll back" here: the only order write is a never-submitted 
 - `src/input.ts` — email/PDF text with exact source evidence (subject and sender are separate sources).
 - `src/model.ts` — the single fixed Gemini entry point; no ERP write permission.
 - `src/domain.ts` — deterministic validation, conformance gates, date/quantity normalisation.
-- `src/workflow.ts` — routing, tool calls, checkpoints, and the ERP handoff decisions.
+- `src/workflow.ts` — the recoverable orchestrator: routing, tool calls, checkpoints, and the ERP handoff.
 - `src/erp.ts` — ERPNext REST boundary: reads, one draft write, work items, review-state read-back.
-- `src/review-sync.ts` — resumes a paused workflow from the ERP's own `docstatus`; it cannot approve anything itself.
+- `src/review-sync.ts` — closes the loop from the ERP's own `docstatus` back into a paused run; it cannot approve anything itself.
+- `src/inquiry-pipeline.ts` — the mail-to-Inquiry pipeline, injected with its ERP/processing/log for testability.
+- `src/config.ts` — zod-validated config, failing before the first write; `src/log.ts` — one JSON object per line.
 - `src/cli.ts` — cross-process operator lock and the strict review path.
 
 Pricing, tax, and totals remain ERPNext's. An ambiguous product reference stays unresolved for a human. A company location extracted from prose is never treated as an approved shipping address.
