@@ -33,7 +33,7 @@
     "langsmith": "^0.11.0",
     "mailparser": "^3.9.38",
     "pdfjs-dist": "^6.3.289",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/mailparser": "^3.9.0",
