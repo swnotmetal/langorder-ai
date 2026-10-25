@@ -29,7 +29,7 @@
     "@langchain/core": "^1.2.12",
     "@langchain/langgraph": "^1.5.2",
     "@langchain/langgraph-checkpoint-sqlite": "^1.0.4",
-    "langsmith": "^0.10.4",
+    "langsmith": "^0.11.0",
     "mailparser": "^3.9.38",
     "pdfjs-dist": "^6.3.289",
     "zod": "^4.6.5"
