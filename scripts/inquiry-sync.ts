@@ -14,6 +14,7 @@ import { resolve } from 'node:path';
 import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite';
 import { erpConfig, loadEnvFiles, modelConfig } from '../src/config.js';
 import { FrappeERP, type ERP } from '../src/erp.js';
+import { localInquiryReply, localMailExtractor } from '../src/local.js';
 import { runInquirySync, type MailResult, type ProcessMail } from '../src/inquiry-pipeline.js';
 import { markSpend, spendSince } from '../src/ledger.js';
 import { log } from '../src/log.js';
@@ -23,13 +24,17 @@ import { workflow } from '../src/workflow.js';
 
 loadEnvFiles();
 const settings = erpConfig();
-// Validated before the first write, so a missing key cannot fail halfway through filing.
-modelConfig();
+// The provider is chosen explicitly, never inferred. `local` means a llama.cpp/Ollama server on
+// loopback, so no Google key is needed and no mail leaves the machine.
+const provider = (process.env.MODEL_PROVIDER ?? 'gemini').toLowerCase();
+if (provider !== 'local') modelConfig();
+log('inquiry.sync.provider', { provider, local_url: process.env.LOCAL_MODEL_URL ?? null, local_model: process.env.LOCAL_MODEL_ID ?? null });
 
 const erp = new FrappeERP(settings.base, `token ${settings.token}`, settings.company);
 const dataDir = resolve(process.env.ORDER_DATA_DIR ?? 'data');
-const extractor = geminiExtractor(dataDir);
-const draftModel = geminiInquiryReply(dataDir);
+const localOptions = { baseUrl: process.env.LOCAL_MODEL_URL, model: process.env.LOCAL_MODEL_ID };
+const extractor = provider === 'local' ? localMailExtractor(localOptions) : geminiExtractor(dataDir);
+const draftModel = provider === 'local' ? localInquiryReply(localOptions) : geminiInquiryReply(dataDir);
 
 // Reads pass through; every write is refused, because this path files an Inquiry instead.
 const reading: ERP = {

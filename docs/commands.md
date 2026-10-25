@@ -262,7 +262,35 @@ deterministic tests make no live model calls, which is why they are safe to run 
 
 ---
 
-## 10. Run the whole ERP loop in CI instead — optional
+## 10. Choose the model provider — optional
+
+`npm run inquiry:sync` reads `MODEL_PROVIDER` and picks the implementation explicitly:
+
+| `MODEL_PROVIDER` | Endpoint | Requires | Leaves the machine? |
+| --- | --- | --- | --- |
+| `gemini` (default) | Google Generative Language API | `GOOGLE_API_KEY` | yes |
+| `local` | `LOCAL_MODEL_URL`, default `http://127.0.0.1:8081` | a llama.cpp or Ollama server on loopback | no |
+
+```powershell
+$env:MODEL_PROVIDER='local'
+$env:LOCAL_MODEL_URL='http://127.0.0.1:8081'   # llama.cpp; Ollama is http://127.0.0.1:11434
+npm run inquiry:sync
+```
+
+Two things that differ on the local path, both measured:
+
+- The model returns **plain values**, and `src/evidence.ts` locates each one in the source. Asking a
+  small model for character-exact quotes fails: `qwen2.5:7b` could not satisfy the strict span
+  schema at all, and a 14B still had to be steered away from signature addresses.
+- The cost line reads `0 model call(s), $0.0000` because the ledger records **billed** providers
+  only. A local call is free, not unrecorded by accident.
+
+Measured 2026-10-26 with `Qwen2.5-Coder-14B-Instruct Q4_K_M` on one mail: 18–26 s end to end, both
+lines resolved to real ERP items (`FILTER-A10`, `THERM-S1`), reply drafted without a link or a price.
+
+---
+
+## 11. Run the whole ERP loop in CI instead — optional
 
 `.github/workflows/integration.yml` boots the real stack on a GitHub runner and re-runs the seeds to
 prove they are idempotent. Trigger it manually: **Actions → ERP integration (manual) → Run workflow**.
