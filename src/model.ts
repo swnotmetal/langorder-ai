@@ -6,6 +6,7 @@ import { Client, RunTree } from 'langsmith';
 import { getCurrentRunTree } from 'langsmith/traceable';
 import { z } from 'zod';
 import { type Extraction, type Fact, type InquiryCase, type Item, type Source, normalize } from './domain.js';
+import { locate, sourceIndex } from './evidence.js';
 import { type FrappeERP, type Inventory } from './erp.js';
 import { verifyEvidence } from './input.js';
 
@@ -51,6 +52,32 @@ export function verifyModelProposal(raw:unknown,sources:Source[]):Extraction {
     })};
   if(dropped.length) result.warnings=[...new Set(dropped)].map(field=>({code:'UNRESOLVED_MODEL_EVIDENCE' as const,field,message:`Confirm ${field} from the original message`}));
   verifyEvidence(result,sources);return result;
+}
+
+// A local 7B model follows the JSON shape but mislabels source indexes and paraphrases quotes, so it
+// fails the strict schema for reasons unrelated to extraction quality. Here it returns plain values
+// and the code locates each one. A value that is not in the source is still dropped, so the safety
+// property is identical: nothing reaches the draft without appearing verbatim in the mail.
+const plainFields=['customer','sender','location','po','date','address'] as const;
+const plainProposal=z.object({
+  facts:z.object(Object.fromEntries(plainFields.map(f=>[f,z.array(z.string())])) as Record<typeof plainFields[number],z.ZodArray<z.ZodString>>),
+  lines:z.array(z.object({description:z.string(),quantity:z.string().nullable(),unit:z.string().nullable()}).strict()),
+}).strict();
+export function verifyPlainProposal(raw:unknown,sources:Source[]):Extraction {
+  const p=plainProposal.parse(raw);
+  const spanOf=(value:string)=>{const f=locate(value,sources);return f?{sourceIndex:sourceIndex(f,sources),quote:f.evidence.quote,value:f.value}:null;};
+  const keep=(list:string[])=>list.map(spanOf).filter((s):s is NonNullable<typeof s>=>s!==null);
+  const facts=Object.fromEntries(plainFields.map(f=>[f,keep(p.facts[f])])) as Record<typeof plainFields[number],ReturnType<typeof keep>>;
+  const lines=p.lines.flatMap(l=>{
+    const description=spanOf(l.description),quantity=l.quantity?spanOf(l.quantity):null,unit=l.unit?spanOf(l.unit):null;
+    return description&&quantity&&unit?[{description,quantity,unit}]:[];
+  });
+  const result=verifyModelProposal({facts,lines},sources);
+  // Say what was lost: silence here would read like the model found nothing.
+  const unlocated=plainFields.filter(f=>p.facts[f].length>keep(p.facts[f]).length);
+  if(unlocated.length) result.warnings=[...(result.warnings??[]),...unlocated.map(field=>({code:'UNRESOLVED_MODEL_EVIDENCE' as const,
+    field,message:`Confirm ${field} from the original message: the model's value is not in the source`}))];
+  return result;
 }
 
 const inventoryInput=z.object({itemCode:z.string().trim().min(1).max(140)}).strict();
