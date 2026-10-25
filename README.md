@@ -45,6 +45,26 @@ There is deliberately no approval screen in this repository. Authority sits wher
 
 There is nothing to "roll back" here: the only order write is a never-submitted draft, and the only reply write is a work item that is never sent. The model gets no ERP credentials; the integration user is forbidden `DELETE`.
 
+## Abuse, cost, and the mailbox boundary
+
+LangOrder itself has **no DDoS defence and no spam filtering**. It is not a mail server: it only reads
+what the mailbox already delivered into the ERP, and it does not answer the door.
+
+The trust model is layered, and each layer is named:
+
+- **The inbox is the boundary.** In this repo the inbox is GreenMail/Mailpit on localhost; in a real
+  deployment it is a provider inbox whose own spam, DDoS and rate limiting run *upstream* of this
+  code. Junk the inbox rejects never reaches a model call.
+- **The model is the cost surface.** Every mail that reaches `inquiry:sync` can cost a call, so
+  unbounded inbound means unbounded spend. Two things already bound it: the deterministic pre-screen
+  (`src/triage.ts`) drops solicitation before any model call, and the ledger records every attempt
+  with no automatic retry. Neither is a quota — that must come from the model account itself.
+
+If this were run in front of a live inbox, the minimum required controls would be: a provider-side
+spam/DDoS defence, a hard monthly quota on the model account, and an alert when the ledger grows
+unexpectedly. Those are operations responsibilities; none are implemented here, and none are
+pretended to be.
+
 ## Reliability
 
 `npm run failure-lab` runs four scenarios against the in-process mock ERP — no Docker, no ERPNext, no model calls — and prints a pass/fail line with the evidence:

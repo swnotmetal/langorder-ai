@@ -62,6 +62,17 @@ if (settings) {
     record('FAIL', 'token + Inquiry DocType', (error as Error).message);
   }
 
+  // Negative check: the integration account must be able to read what the pipeline needs, and
+  // nothing more. `Has Role` (the role-assignment table) is readable only by System Manager, so
+  // being denied is the evidence that least privilege holds; being allowed means the account was
+  // promoted. (`User` and `Role` are readable by ordinary Sales Users, so they cannot prove this.)
+  try {
+    await erp.list<{ name: string }>('Has Role', ['name']);
+    record('WARN', 'token is least-privileged', 'token can read Has Role; it likely holds System Manager, not Sales User');
+  } catch (error) {
+    record('ok', 'token is least-privileged', `denied reading Has Role (${(error as Error).message}) — correct for Sales User`);
+  }
+
   try {
     const leads = await erp.list<{ name: string }>('Lead', ['name']);
     const mails = await erp.list<{ name: string }>('Communication', ['name'], [

@@ -111,3 +111,22 @@ auditability, not remove it.
 **Revisit when.** After the four recovery behaviours are demonstrated (long wait, process restart,
 ERP state change, revision mismatch — three of which are already tested), and only if a concrete
 cost of the checkpoint shows up.
+
+## 10. The mailbox is the trust boundary; the model quota is the cost boundary
+
+**Decision.** This codebase assumes the inbox already filtered spam and absorbed DDoS. It adds no
+rate limiting, no per-sender throttling, and no spam classifier of its own — and it says so in the
+README rather than implying otherwise.
+
+**Why.** The failure mode a reviewer should see is not "no defence", it is "the defence is layered
+at the right place". Inbox-level spam/DDoS is the mailbox's job; cost containment is the model
+account's job (a hard quota plus an alert); this project's own job is the deterministic pre-screen
+and the honest ledger. Putting a rate limiter inside a demo would imply a production posture that
+does not exist.
+
+**Rejected.** A self-built spam classifier or per-sender rate limiter. The former would need a
+second model (forbidden by AGENTS.md); the latter is ingress machinery that belongs in front of the
+worker, not inside it.
+
+**Revisit when.** If this ever fronts a live inbox, the two required controls (provider DDoS/spam,
+hard model quota) must exist first; they are out of scope for the portfolio.
