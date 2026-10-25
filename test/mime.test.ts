@@ -6,6 +6,22 @@ import { join } from 'node:path';
 import { decodeMail } from '../src/mime.js';
 import { readSources, templateExtractor, verifyEvidence } from '../src/input.js';
 
+// An attachment with no text layer must fail loudly. The guard used to look at "any source after the
+// email", which the subject line satisfies, so a scanned PDF slipped through as empty text.
+test('a PDF with no text layer is refused instead of becoming empty evidence', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'scanned-'));
+  try {
+    const { PDFDocument } = await import('pdf-lib');
+    const document = await PDFDocument.create();
+    document.addPage();
+    const blank = join(dir, 'scanned.pdf');
+    await writeFile(blank, await document.save());
+    await assert.rejects(readSources('fixtures/01-clean.eml', blank), /NO_PDF_TEXT/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 // Hand-written MIME so the decoder is exercised independently of whatever wrote the message.
 async function rawMessage() {
   const pdf = await readFile('fixtures/01-clean.pdf');

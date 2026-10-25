@@ -45,7 +45,10 @@ export async function readSources(email: string, pdf?: string): Promise<Source[]
     if (bytes.length > 10*1024*1024) throw Error('INPUT_TOO_LARGE');
     page = await appendPdfPages(sources, bytes, page);
   }
-  if (attachments.length && !sources.slice(1).some(s=>s.text.trim())) throw Error('NO_PDF_TEXT: OCR is not supported');
+  // A scanned attachment has a page but no text layer. Checking "no source after the email" was
+  // wrong: subject and sender are added after it, so a normal-looking mail with a scanned PDF passed
+  // the guard and reached the model with no attachment text at all.
+  if (attachments.length && !sources.some(s=>s.source==='pdf' && s.text.trim())) throw Error('NO_PDF_TEXT: OCR is not supported');
   return sources;
 }
 

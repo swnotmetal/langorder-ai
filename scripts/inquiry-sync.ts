@@ -15,6 +15,7 @@ import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite';
 import { erpConfig, loadEnvFiles, modelConfig } from '../src/config.js';
 import { FrappeERP, type ERP } from '../src/erp.js';
 import { runInquirySync, type MailResult, type ProcessMail } from '../src/inquiry-pipeline.js';
+import { markSpend, spendSince } from '../src/ledger.js';
 import { log } from '../src/log.js';
 import { smtpSender } from '../src/mail-send.js';
 import { geminiExtractor, geminiInquiryReply } from '../src/model.js';
@@ -63,6 +64,7 @@ const processMail: ProcessMail = async (sources, threadId): Promise<MailResult> 
 
 
 // The pipeline itself lives in src/inquiry-pipeline.ts so it can be tested without a live site.
+const spend = markSpend(dataDir);
 const summary = await runInquirySync({
   erp: {
     list: (doctype, fields, filters) => erp.list(doctype, fields, filters),
@@ -81,6 +83,10 @@ const summary = await runInquirySync({
 });
 
 log('inquiry.sync.done', { ...summary });
+const used = spendSince(spend);
+log('inquiry.sync.spend', { model_calls: used.calls, cost_usd_micro: used.usdMicro });
 process.stdout.write(
-  `${summary.filed} Inquiry record(s), ${summary.screened} screened out, ${summary.quotations} quotation(s)\n`,
+  `${summary.filed} Inquiry record(s), ${summary.screened} screened out, ${summary.quotations} quotation(s), ` +
+  `${summary.replies} repl${summary.replies === 1 ? 'y' : 'ies'} sent — ${used.calls} model call(s), ` +
+  `$${(used.usdMicro / 1e6).toFixed(4)}\n`,
 );

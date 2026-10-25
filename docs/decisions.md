@@ -82,6 +82,11 @@ Each entry is one decision, why we made it, what we rejected, and when we would 
 
 **Revisit when.** Never under the current policy; any change must come from an AGENTS.md update, not from code.
 
+Explored 2026-10-25 for an Amazon Nova split. In `eu-north-1` the bare model IDs are rejected
+(`on-demand throughput isn't supported`) — Nova requires a cross-region inference profile such as
+`eu.amazon.nova-lite-v1:0`. Invocation was additionally blocked by AWS account verification, so no
+switch was made and the code still runs a single model.
+
 ## 9. LangGraph is a recoverable orchestrator, not an approval workflow
 
 **Decision.** LangGraph's job is to sequence multi-step AI reasoning (extraction, inventory tool
@@ -130,3 +135,31 @@ worker, not inside it.
 
 **Revisit when.** If this ever fronts a live inbox, the two required controls (provider DDoS/spam,
 hard model quota) must exist first; they are out of scope for the portfolio.
+
+## 11. Reconciliation polls the ERP; it does not wait for a webhook
+
+**Decision.** `review-sync` lists paused threads and reads each draft's `docstatus`, rather than
+having Frappe push an event into the graph. It is a pull loop, run by hand or by a scheduler.
+
+**Why.** A webhook needs a Frappe-side hook (`doc_events` on Sales Order), which means installing a
+custom app on the site — the one thing this demo avoids, because the point is that ERPNext stays
+stock. Polling also fails safe: if the loop is not running nothing happens, and the checkpoint is
+still there when it starts.
+
+**Rejected.** A custom Frappe app that calls back into this process. It adds a Python deployment
+artifact to a TypeScript repository and makes the ERP responsible for a callback it cannot retry.
+
+**Revisit when.** Pull latency becomes the limiting factor (for example a promise to confirm within
+minutes), or the ERP already carries a custom app for another reason.
+
+## Deliberately out of scope
+
+Not gaps we forgot. Adding any of these would not improve what the repository demonstrates.
+
+| Not built | Why not |
+| --- | --- |
+| Multi-tenancy and a credential vault | One site, one integration user. A vault without several tenants is theatre. |
+| A message queue (Kafka/RabbitMQ) | Idempotency keys plus a low-volume workload; a queue adds an operator and a resume story with nothing to resume. See #4. |
+| OCR or multimodal PDF parsing | The text-layer limit is stated, and a scanned attachment now fails with `NO_PDF_TEXT` instead of silently producing nothing. |
+| Spam/DDoS defence inside the app | The inbox is the trust boundary, the model account is the cost boundary. See #10. |
+| A second model provider today | Policy blocked, then AWS verification blocked; see #8. |

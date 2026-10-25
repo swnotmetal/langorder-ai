@@ -151,7 +151,11 @@ export function workflow(erp:ERP, saver:SqliteSaver, extract:Extractor=templateE
       const itemText=line.description.value;
       const itemMatches=matchingItems(candidates[index],itemText);
       const itemCode=itemMatches.length===1?itemMatches[0].name:'';
-      const base={itemText,itemCode,quantity:line.quantity.value};
+      // "how much do you have left" is a question, not a quantity. Store nothing rather than prose:
+      // this field feeds the reviewer and the quotation, and a sentence there reads as data.
+      const normalized=normalizeQuantity(line.quantity.value);
+      const quantity=/^[1-9]\d{0,8}$/.test(normalized)?normalized:'';
+      const base={itemText,itemCode,quantity};
       if(!itemCode) return {...base,status:candidates[index].length?'unresolved':'catalog-miss',inventory:null} as InquiryLine;
       try {
         const stock=await inventoryReader.invoke({itemCode});

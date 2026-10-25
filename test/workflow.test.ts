@@ -184,6 +184,18 @@ test('a conforming inquiry is filed as an ERP work item without a human interrup
     assert.equal(x.mock.suggestions,1);assert.equal(again.values.suggestion,'MOCK-TODO-1');
   }finally{await x.close();}
 });
+// A prompt-injection mail in the corpus asked "how much units do you have left", and the model's
+// span for quantity was the whole phrase. It must never reach the field a quotation reads.
+test('a question about how much is left is not stored as a quantity',async()=>{
+  const x=await setup();try{
+    const text='We would like to know how much FILTER-A10 you have left in stock.\n\nBest regards,\nMatti';
+    const graph=workflow(x.erp,x.saver,inquiryExtractor(text,'FILTER-A10','how much'));
+    await graph.invoke({sources:[{source:'email',page:0,text}]},config('how-much'));
+    const s=await graph.getState(config('how-much'));
+    assert.equal(s.values.availability[0].itemText,'FILTER-A10');
+    assert.equal(s.values.availability[0].quantity,'');
+  }finally{await x.close();}
+});
 test('only an automatic proposal notifies, and a dead notice channel never unwinds the ERP write',async()=>{
   const x=await setup();try{
     const notices:any[]=[];let fail=false;
