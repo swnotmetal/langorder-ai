@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { runInquirySync, type MailResult, type PipelineErp } from '../src/inquiry-pipeline.js';
+import { type OutgoingReply, type SendReply } from '../src/mail-send.js';
 
 type Call = { path: string; body?: unknown; method?: string };
 
@@ -56,7 +57,7 @@ const ok: MailResult = {
   customerText: 'Hanoi Tech',
 };
 
-function setup(overrides: Partial<MailResult> = {}, seed = {}) {
+function setup(overrides: Partial<MailResult> = {}, seed = {}, sendReply?: SendReply) {
   const { erp, calls } = fakeErp({
     leads: [{ name: 'CRM-LEAD-1', email_id: 'buyer@example.invalid', lead_name: 'Buyer' }],
     mails: [{
@@ -75,6 +76,7 @@ function setup(overrides: Partial<MailResult> = {}, seed = {}) {
       erp,
       processMail: async () => { processed += 1; return { ...result, ...overrides }; },
       draftReply: async () => 'fallback draft',
+      ...(sendReply ? { sendReply } : {}),
       log: (event, fields = {}) => events.push({ event, fields }),
     }),
   };
@@ -218,4 +220,79 @@ test('instructions inside an email cannot reach the ERP: the write has no field 
     [...new Set(writes.map(w => w.path))].sort(),
     ['/api/resource/Inquiry'],
   );
+});
+
+// --- Reply sending: the one side effect, gated on a human decision -------------------------
+
+function replyHarness(documents: Record<string, unknown>, sent: OutgoingReply[] = []) {
+  const sendReply: SendReply = async mail => {
+    sent.push(mail);
+    return { messageId: '<reply-1@example.invalid>' };
+  };
+  return { sendReply, sent, setup: () => setup({}, { qualified: [{ name: 'INQ-00009' }], documents }, sendReply) };
+}
+
+test('a Qualified Inquiry emails the customer once and records that it was sent', async () => {
+  const sent: OutgoingReply[] = [];
+  const s = replyHarness({
+    'INQ-00009': {
+      sender: 'buyer@customer.invalid', subject: 'RFQ Filter A10',
+      suggested_reply: '<p>Hello,<br>we can ship 40 units.</p><p>Sales team</p>',
+    },
+  }, sent).setup();
+
+  const summary = await s.run();
+  assert.equal(summary.replies, 1);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].to, 'buyer@customer.invalid');
+  assert.equal(sent[0].subject, 'Re: RFQ Filter A10');
+  assert.match(sent[0].text, /we can ship 40 units\./);
+  assert.match(sent[0].text, /\n/, 'line breaks from the HTML draft must survive');
+
+  const put = s.calls.find(c => c.path === '/api/resource/Inquiry/INQ-00009' && c.method === 'PUT');
+  const body = put?.body as Record<string, unknown>;
+  assert.match(String(body.reply_sent_at), /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+  assert.equal(body.reply_message_id, '<reply-1@example.invalid>');
+  assert.equal(body.reply_to, 'buyer@customer.invalid');
+  assert.ok(s.events.some(e => e.event === 'inquiry.reply_sent'));
+});
+
+test('an Inquiry that already recorded a send is never emailed again', async () => {
+  const sent: OutgoingReply[] = [];
+  const s = replyHarness({
+    'INQ-00009': {
+      sender: 'buyer@customer.invalid', subject: 's', suggested_reply: '<p>done</p>',
+      reply_sent_at: '2026-10-24 09:00:00',
+    },
+  }, sent).setup();
+  const summary = await s.run();
+  assert.equal(summary.replies, 0);
+  assert.equal(sent.length, 0);
+});
+
+test('nothing is emailed before a human Qualifies the Inquiry', async () => {
+  const sent: OutgoingReply[] = [];
+  const sendReply: SendReply = async mail => { sent.push(mail); return { messageId: '<x@y>' }; };
+  // Default seed: the mail is filed as Pending Review, so there is no Qualified row.
+  const s = setup({}, {}, sendReply);
+  const summary = await s.run();
+  assert.equal(summary.replies, 0);
+  assert.equal(sent.length, 0, 'the pipeline must not email a customer on its own');
+});
+
+test('a failed send is logged and left unrecorded, so the next run retries', async () => {
+  const sendReply: SendReply = async () => { throw Error('SMTP_REFUSED'); };
+  const s = setup({}, {
+    qualified: [{ name: 'INQ-00009' }],
+    documents: { 'INQ-00009': { sender: 'buyer@customer.invalid', suggested_reply: '<p>hi</p>' } },
+  }, sendReply);
+
+  const summary = await s.run();
+  assert.equal(summary.replies, 0);
+  const failure = s.events.find(e => e.event === 'inquiry.reply_failed');
+  assert.match(String(failure?.fields.error), /SMTP_REFUSED/);
+  const marked = s.calls.find(c =>
+    c.path === '/api/resource/Inquiry/INQ-00009' && c.method === 'PUT'
+    && 'reply_sent_at' in ((c.body ?? {}) as Record<string, unknown>));
+  assert.equal(marked, undefined, 'a failed send must not look like a sent one');
 });

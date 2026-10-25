@@ -187,7 +187,29 @@ Re-running is idempotent: it keys on the mail's `Message-ID` and on the Inquiry'
 
 Open <http://127.0.0.1:8080> (Administrator / admin, local demo only) and go to the **Inquiry** list.
 
-- **Qualify** a row → the next `inquiry:sync` drafts the Quotation.
+- **Qualify** a row → the next `inquiry:sync` emails the drafted reply to the customer's sandbox
+  mailbox and drafts the Quotation.
+
+### The reply loop (sandbox)
+
+Two mailboxes take part, and neither is a real provider:
+
+| Mailbox | Tool | Port | Role |
+| --- | --- | --- | --- |
+| Sales inbox | GreenMail | SMTP 3025 / IMAP 3143 | the ERP pulls from here |
+| Customer inbox | Mailpit | SMTP 1025 / web 8025 | receives the reply, readable at <http://127.0.0.1:8025> |
+
+```powershell
+.\infra\start-mailpit.ps1              # the customer side; leave it running
+# qualify an Inquiry in ERPNext, then:
+npm run inquiry:sync                    # sends the reply, then drafts the Quotation
+npm run sandbox:inbox                   # what the customer actually received
+```
+
+Why this cannot email a stranger: `smtpSender` refuses any SMTP host that is not loopback unless
+`SANDBOX_ALLOW_REMOTE=1` is set, so a realistic-looking `To:` address still only lands in Mailpit.
+The reply is sent **only** for an Inquiry a human already Qualified, and only once — `reply_sent_at`
+on the Inquiry makes a second run a no-op.
 - **Reject** → nothing is written.
 - **Screened Out** → nothing to do; it was never procurement mail.
 - For orders: the Sales Order is already a draft (`docstatus=0`). Submit it to **approve**, or leave /

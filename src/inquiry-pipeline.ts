@@ -9,6 +9,7 @@
 // makes the whole pipeline testable without a live site, a model call, or a network.
 import { type InquiryLine, type Source } from './domain.js';
 import { type Log, log as defaultLog } from './log.js';
+import { type SendReply } from './mail-send.js';
 import { screenSolicitation } from './triage.js';
 
 export type PipelineErp = {
@@ -29,7 +30,7 @@ export type ProcessMail = (sources: Source[], threadId: string) => Promise<MailR
 export type MailContext = { subject: string; body: string; senderEmail: string; senderName: string };
 export type DraftReply = (mail: MailContext, customer: string) => Promise<string>;
 
-export type SyncSummary = { screened: number; filed: number; quotations: number };
+export type SyncSummary = { screened: number; filed: number; quotations: number; replies: number };
 
 type Lead = { name: string; email_id?: string; lead_name?: string };
 type Mail = { name: string; subject?: string; content?: string; text_content?: string; message_id?: string };
@@ -38,17 +39,32 @@ type InquiryRow = {
   lead?: string;
   customer?: string;
   quotation?: string;
+  subject?: string;
+  sender?: string;
+  suggested_reply?: string;
+  reply_sent_at?: string;
   lines?: { item?: string; quantity?: string }[];
 };
 
 const html = (text: string) =>
   `<p>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>`;
 const strip = (value: string) => value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+// The stored draft is HTML; an email body is text. Line breaks are the part worth keeping.
+const htmlToText = (value: string) => value
+  .replace(/<\s*br\s*\/?>/gi, '\n')
+  .replace(/<\/(p|div)>/gi, '\n\n')
+  .replace(/<[^>]+>/g, '')
+  .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim();
 
 export async function runInquirySync(deps: {
   erp: PipelineErp;
   processMail: ProcessMail;
   draftReply: DraftReply;
+  // Omitted in the default run, because sending is the one side effect a demo must not do by
+  // accident. When supplied, it is only ever called for an Inquiry a human already Qualified.
+  sendReply?: SendReply;
   log?: Log;
 }): Promise<SyncSummary> {
   const { erp, processMail, draftReply } = deps;
@@ -60,7 +76,7 @@ export async function runInquirySync(deps: {
       .map(row => row.source_message_id)
       .filter((id): id is string => Boolean(id)),
   );
-  const summary: SyncSummary = { screened: 0, filed: 0, quotations: 0 };
+  const summary: SyncSummary = { screened: 0, filed: 0, quotations: 0, replies: 0 };
 
   for (const lead of await erp.list<Lead>('Lead', ['name', 'email_id', 'lead_name'])) {
     const mails = await erp.list<Mail>('Communication', ['name', 'subject', 'content', 'text_content', 'message_id'], [
@@ -171,6 +187,30 @@ export async function runInquirySync(deps: {
     // Fetch the document itself: a list query with child fields flattens one row per child line
     // and does not give back the child table as an array.
     const inquiry = await erp.request<InquiryRow>(`/api/resource/Inquiry/${encodeURIComponent(row.name)}`);
+
+    // Sending happens here and only here. The Inquiry is Qualified, which means a human approved
+    // it in ERPNext; the model never triggers a send. A failure is logged and left unmarked, so
+    // the next run retries instead of silently losing the reply.
+    const replyText = htmlToText(inquiry.suggested_reply ?? '');
+    if (deps.sendReply && replyText && inquiry.sender && !inquiry.reply_sent_at) {
+      try {
+        const sent = await deps.sendReply({
+          to: inquiry.sender,
+          subject: `Re: ${inquiry.subject || 'your inquiry'}`,
+          text: replyText,
+        });
+        await erp.request(`/api/resource/Inquiry/${encodeURIComponent(inquiry.name)}`, {
+          reply_sent_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+          reply_message_id: sent.messageId,
+          reply_to: inquiry.sender,
+        }, 'PUT');
+        summary.replies += 1;
+        log('inquiry.reply_sent', { inquiry: inquiry.name, to: inquiry.sender, message_id: sent.messageId });
+      } catch (error) {
+        log('inquiry.reply_failed', { inquiry: inquiry.name, to: inquiry.sender, error: (error as Error).message });
+      }
+    }
+
     if (inquiry.quotation) continue;
     const items = (inquiry.lines ?? [])
       .filter(line => line.item && Number(line.quantity) > 0)

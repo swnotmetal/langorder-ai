@@ -76,6 +76,11 @@ try:
         {"fieldname": "suggested_reply", "label": "Suggested reply (not sent)", "fieldtype": "Text Editor"},
         {"fieldname": "lines", "label": "Resolved lines", "fieldtype": "Table", "options": "Inquiry Line"},
         {"fieldname": "quotation", "label": "Draft quotation", "fieldtype": "Link", "options": "Quotation", "read_only": 1},
+        # Written after a human Qualifies the Inquiry and the sandbox send succeeds. Its presence is
+        # what makes the send idempotent: a second run must not email the customer again.
+        {"fieldname": "reply_sent_at", "label": "Reply sent at (UTC)", "fieldtype": "Datetime", "read_only": 1},
+        {"fieldname": "reply_message_id", "label": "Reply Message-ID", "fieldtype": "Data", "read_only": 1},
+        {"fieldname": "reply_to", "label": "Reply sent to", "fieldtype": "Data", "read_only": 1},
         {"fieldname": "screening", "label": "Pre-screen", "fieldtype": "Data", "read_only": 1},
     ]
     inquiry_dt = frappe.get_doc("DocType", "Inquiry")

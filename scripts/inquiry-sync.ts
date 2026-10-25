@@ -16,6 +16,7 @@ import { erpConfig, loadEnvFiles, modelConfig } from '../src/config.js';
 import { FrappeERP, type ERP } from '../src/erp.js';
 import { runInquirySync, type MailResult, type ProcessMail } from '../src/inquiry-pipeline.js';
 import { log } from '../src/log.js';
+import { smtpSender } from '../src/mail-send.js';
 import { geminiExtractor, geminiInquiryReply } from '../src/model.js';
 import { workflow } from '../src/workflow.js';
 
@@ -69,6 +70,9 @@ const summary = await runInquirySync({
     findCustomers: text => erp.findCustomers(text),
   },
   processMail,
+  // Replies go to the sandbox customer mailbox (Mailpit by default). smtpSender refuses any
+  // non-loopback host, so a realistic-looking customer address cannot leave this machine.
+  sendReply: smtpSender(),
   draftReply: async (mail, customer) => (await draftModel({
     intent: 'inquiry', customerText: mail.body, senderName: mail.senderName, customer,
     lines: [], condition: '', requestedDate: '', deliveryAddress: '', needs: [],

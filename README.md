@@ -43,7 +43,7 @@ There is deliberately no approval screen in this repository. Authority sits wher
 - anything the ERP cannot represent (unknown customer, unresolved item, missing address) becomes a **ToDo** — never a half-invented order;
 - an `Inquiry` moves `Pending Review → Qualified / Rejected` through an ERPNext workflow, recording `modified_by` and a timestamp.
 
-There is nothing to "roll back" here: the only order write is a never-submitted draft, and the only reply write is a work item that is never sent. The model gets no ERP credentials; the integration user is forbidden `DELETE`.
+There is nothing to "roll back" here: the only order write is a never-submitted draft. Drafting a reply files a work item that is never sent; a reply leaves the machine only after a human moves the Inquiry to `Qualified`, and only to a loopback sandbox mailbox (`src/mail-send.ts` refuses any non-loopback SMTP host unless explicitly overridden). The model gets no ERP credentials; the integration user is forbidden `DELETE`.
 
 ## Abuse, cost, and the mailbox boundary
 
