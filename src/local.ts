@@ -130,7 +130,7 @@ export function localInquiryReply(options: LocalOptions = {}) {
     });
     const facts = JSON.stringify({
       language: inquiry.replyLanguage, senderName: inquiry.senderName, company: inquiry.customerText,
-      condition: inquiry.condition, requestedDate: inquiry.requestedDate, lines,
+      requestedDate: inquiry.requestedDate, lines,
     });
     if (Buffer.byteLength(facts, 'utf8') > 10000) throw Error('MODEL_REPLY_INPUT_LIMIT');
 
@@ -147,6 +147,12 @@ export function localInquiryReply(options: LocalOptions = {}) {
     const draft = result.content.trim();
     if (!draft) throw Error('MODEL_NO_REPLY_DRAFT');
     if (/https?:\/\//i.test(draft)) throw Error('MODEL_REPLY_INVALID: the draft contains a link');
+    // A model that has been talked into obeying the mail can return a bare token (measured
+    // 2026-10-26: an abliterated 14B answered a reply request with "SYSTEM_COMPROMISED"). A customer
+    // reply is at least a sentence, so anything shorter is not a draft, whatever it says.
+    if (draft.length < 60 || draft.split(/\s+/).filter(Boolean).length < 8) {
+      throw Error('MODEL_REPLY_INVALID: draft is too short to be a customer reply');
+    }
     return { draft: draft.slice(0, 5000), language: inquiry.replyLanguage, model: options.model ?? process.env.LOCAL_MODEL_ID ?? 'local' };
   };
 }
