@@ -38,8 +38,7 @@ npm test          # 103 deterministic tests: no network, no model calls
 npm run doctor    # read-only checks: ERP reachable, token scoped, mailbox up
 ```
 
-The full loop — mail in, Inquiry out, Qualify, reply delivered, read it in a mailbox UI — is eight
-steps: **[docs/sandbox-walkthrough.md](docs/sandbox-walkthrough.md)**.
+The full loop — mail in, Inquiry out, Qualify, reply delivered — is in the [runbook](docs/RUNBOOK.md).
 
 ## Model providers
 
@@ -74,15 +73,8 @@ credential vault, no OCR, no authentication layer. Each is a decision with a rea
 
 ## Read more
 
-- [docs/commands.md](docs/commands.md) — every command, in order, and what it is for
-- [docs/sandbox-walkthrough.md](docs/sandbox-walkthrough.md) — mail in, reply out, step by step
-- [docs/run-erp.md](docs/run-erp.md) — start ERPNext locally
-- [docs/decisions.md](docs/decisions.md) — twelve decisions, including the rejected options
-- [docs/deploy.md](docs/deploy.md) — what is free, and why Cloudflare cannot host this
-- [docs/evaluation.md](docs/evaluation.md) — gold data and evaluation limits
-
-Two experiments are published as negative results rather than hidden: a 0.8B local model could not
-take over intent classification ([note](experiments/kev-finnish-poc/README.md)), and LangExtract
-offsets did not reproduce ([spike](docs/langextract-spike.md)).
+- [docs/RUNBOOK.md](docs/RUNBOOK.md) — how to run it, and what each command is for
+- [docs/decisions.md](docs/decisions.md) — twelve decisions and the rejected options
+- [docs/verification.md](docs/verification.md) — the dated evidence record
 
 Engineering portfolio, not a production or ROI claim. Fictional data only.

@@ -187,3 +187,12 @@ Not gaps we forgot. Adding any of these would not improve what the repository de
 | OCR or multimodal PDF parsing | The text-layer limit is stated, and a scanned attachment now fails with `NO_PDF_TEXT` instead of silently producing nothing. |
 | Spam/DDoS defence inside the app | The inbox is the trust boundary, the model account is the cost boundary. See #10. |
 | A second model provider today | Policy blocked, then AWS verification blocked; see #8. |
+
+## Negative results, kept on purpose
+
+Two things were tried and did not work; the records live in git history rather than being hidden.
+
+- A local 0.8B model could not take over intent classification — the reason the model is still
+  chosen by task, not by "smallest that loads".
+- LangExtract's character offsets did not reproduce against the original source — the reason
+  evidence is located by `src/evidence.ts` instead of trusted from the model (#12).

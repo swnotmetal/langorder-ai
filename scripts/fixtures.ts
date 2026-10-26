@@ -20,4 +20,4 @@ for(const [index,c] of cases.entries()) {
   page.drawText(`FICTIONAL PURCHASE ORDER\n\n${text(true)}`,{x:45,y:780,size:12,font,lineHeight:24});
   await writeFile(`fixtures/${c.id}.pdf`,await doc.save());
 }
-console.log('10 development email/PDF pairs generated; provisional expectations are in docs/design.md.');
+console.log('10 development email/PDF pairs generated.');
