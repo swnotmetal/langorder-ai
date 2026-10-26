@@ -1,4 +1,15 @@
-> 2026-09-22 当前约束：所有后续模型调用严格只用 Gemini 2.5 Flash-Lite（`gemini-2.5-flash-lite`），使用 GOOGLE_API_KEY / ORDER_EXTRACTOR=gemini。下文旧供应商记录仅为历史，不构成继续调用的授权。用户已于 2026-09-22 撤销两次 / $0.05 本地限制，保留历史账本；额度或限流错误停止，不自动重试或切换。下文预算限制仅为历史记录；已发生一次旧供应商 401 请求。
+> 2026-10-26 当前策略（以 `AGENTS.md` 为准）：模型供应商有三个 —— Google Gemini（默认）、AWS Bedrock Nova、本机 Ollama/llama.cpp。每个任务必须显式声明模型，没有任何隐式选择；仅在传输/可用性错误（超时、429、5xx、连接被拒）时才允许回退，验证失败绝不回退；每次尝试（含失败）都写入账本并按模型分别计价。额度或限流错误停止，不自动重试或切换。以下 2026-09-22 起的旧记录为历史存档，其中的「只用 Gemini」表述已失效。
+>
+> 2026-09-22 历史约束：所有后续模型调用严格只用 Gemini 2.5 Flash-Lite（`gemini-2.5-flash-lite`），使用 GOOGLE_API_KEY / ORDER_EXTRACTOR=gemini。下文旧供应商记录仅为历史，不构成继续调用的授权。用户已于 2026-09-22 撤销两次 / $0.05 本地限制，保留历史账本；额度或限流错误停止，不自动重试或切换。下文预算限制仅为历史记录；已发生一次旧供应商 401 请求。
+
+## 2026-10-26 AWS Bedrock Nova Lite 端到端跑通
+
+- **账号验证解除**：2026-10-25 的 `AccessDeniedException: Your account is currently being verified` 已消失；`eu-north-1` 下 `eu.amazon.nova-lite-v1:0` 的 `Converse` 返回 `OK`。
+- **结构化输出靠强制工具调用**：`toolChoice: {tool: {name: 'understand_mail'}}` 返回 `{"customer":"Acme Workshop","po":"DEMO-777","lines":[{"item":"FILTER-A10","quantity":"5 Nos"}]}`，用量 `{inputTokens:481, outputTokens:49}`，`metrics.latencyMs` 440，端到端墙钟 1660 ms。没有 `toolUse` 块时抛 `MODEL_NO_STRUCTURED_EXTRACTION`，而不是去解析散文。
+- **真实单据**：`MODEL_PROVIDER=bedrock npm run inquiry:sync` 把一封虚构邮件立成 `INQ-00058`（`CRM-LEAD-2026-00008`），提取 + 草拟回复共 2 次调用，约 2 s/封。
+- **账本按模型计价**：`src/ledger.ts` 增加 `recordAttempt(dataDir, model, usage)` 与 Nova 价目（micro-USD/token：micro 0.035/0.14、lite 0.06/0.24、pro 0.8/3.2），`model_budget` 新增 `model` 列；该轮摘要从 `0 model call(s), $0.0000` 变为 `2 model call(s), $0.0001`。测试用注入 client 并 `record: false`，不写真实账本。
+- **共享契约**：`src/llm.ts` 收敛 schema、prompt、`validateReply`（拒链接、拒少于 60 字符/8 词的「回复」），Gemini / local / Bedrock 走同一套验收规则，所以「同行为、不同传输」是可检验的。
+- 回归：`tsc --noEmit` 干净，`npm test` 107/107（新增 4 个 Bedrock 用例）。
 
 ## 2026-10-20 Failure Lab 与真实 ERPNext Sales Order 验收
 

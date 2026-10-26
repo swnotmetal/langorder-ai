@@ -70,13 +70,20 @@ host. `npm run review:sync` resumes paused order workflows from ERP `docstatus`;
 | --- | --- | --- |
 | `gemini` (default) | `gemini-2.5-flash-lite` | `GOOGLE_API_KEY` in `.env` |
 | `local` | llama.cpp / Ollama on loopback | `LOCAL_MODEL_URL` (default `http://127.0.0.1:8081`) |
+| `bedrock` | `eu.amazon.nova-lite-v1:0` | AWS credentials with `bedrock:InvokeModel`; `BEDROCK_REGION` (default `eu-north-1`), `BEDROCK_MODEL_ID` |
 
 ```powershell
 $env:MODEL_PROVIDER='local'; $env:LOCAL_MODEL_URL='http://127.0.0.1:8081'; npm run inquiry:sync
+$env:MODEL_PROVIDER='bedrock'; npm run inquiry:sync     # defaults to eu.amazon.nova-lite-v1:0
 ```
 
 A small local model returns plain values; `src/evidence.ts` locates each one, so an ungrounded value
 is dropped exactly as on the Gemini path.
+
+Nova must be addressed by a cross-region inference profile (`eu.amazon.nova-*`), never a bare model
+id: bare ids fail with `on-demand throughput isn't supported`. Measured 2026-10-26 on
+`eu.amazon.nova-lite-v1:0`: forced tool use returns schema-conforming JSON in ~440 ms per call, and
+a whole mail (extraction + draft reply) costs $0.0001, recorded per model in the ledger.
 
 ## Diagnose and verify
 

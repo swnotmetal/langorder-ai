@@ -7,7 +7,7 @@ This is an open-source engineering portfolio project published on GitHub. Its ac
 Model access is one seam, `src/model.ts`, with three supported providers:
 
 - **Google Gemini** (`gemini-2.5-flash-lite`, `GOOGLE_API_KEY`) — the default while no other provider is verified.
-- **AWS Bedrock Nova** (region `eu-north-1`). Bare model ids are rejected with `on-demand throughput isn't supported`: Nova needs a cross-region inference profile such as `eu.amazon.nova-lite-v1:0`, `eu.amazon.nova-micro-v1:0` or `eu.amazon.nova-pro-v1:0`. Add it only after one account-verified invocation has actually succeeded; until then it is an unverified path and must be labelled as such.
+- **AWS Bedrock Nova** (region `eu-north-1`). Bare model ids are rejected with `on-demand throughput isn't supported`: Nova needs a cross-region inference profile such as `eu.amazon.nova-lite-v1:0`, `eu.amazon.nova-micro-v1:0` or `eu.amazon.nova-pro-v1:0`. Verified 2026-10-26: `eu.amazon.nova-lite-v1:0` files a real Inquiry (`INQ-00058`) in about 2 s per mail, and the ledger records each attempt per model.
 - **A local Ollama server** (`/api/chat` with `format: <json schema>`, e.g. `qwen2.5:7b`) — for a fully self-hosted deployment where the mail must not leave the network.
 
 Rules:

@@ -48,7 +48,7 @@ Chosen explicitly with `MODEL_PROVIDER`. Nothing selects a model implicitly.
 | --- | --- | --- |
 | `gemini` (default) | `gemini-2.5-flash-lite` | verified |
 | `local` | llama.cpp or Ollama on loopback, e.g. `qwen2.5:7b` | verified end to end |
-| Bedrock Nova | `eu.amazon.nova-*` inference profiles | **not verified**: AWS account verification pending |
+| `bedrock` | `eu.amazon.nova-lite-v1:0` (cross-region inference profile) | verified: `INQ-00058` filed, ~2 s per mail, $0.0001 for two calls |
 
 A small local model is never asked for character-exact quotes. It returns plain values and
 `src/evidence.ts` locates them in the source, so a value that is not in the mail is still dropped.
@@ -57,7 +57,7 @@ A small local model is never asked for character-exact quotes. It returns plain 
 
 | Claim | Evidence |
 | --- | --- |
-| Deterministic behaviour | 103 tests; `npm run failure-lab` runs four failure scenarios against a mock ERP |
+| Deterministic behaviour | 107 tests; `npm run failure-lab` runs four failure scenarios against a mock ERP |
 | Real ERP writes | draft Sales Order and draft Quotation created in ERPNext, confirmed by read-back |
 | Human-only approval | the workflow resumes from ERP `docstatus`; the reconciler cannot approve anything |
 | Reply loop | one Qualified Inquiry produced one reply in the sandbox mailbox; a second run sent none |

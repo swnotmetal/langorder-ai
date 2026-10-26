@@ -72,7 +72,7 @@ Each entry is one decision, why we made it, what we rejected, and when we would 
 
 **Revisit when.** Only if a new source type (e.g. a scanned attachment) needs the same treatment — the union already makes that a one-line extension.
 
-## 8. Single model, no fallback, no auto-retry, ledger everything
+## 8. One explicit model per run, no fallback, no auto-retry, ledger everything
 
 **Decision.** Every model call goes through `src/model.ts` against `gemini-2.5-flash-lite`. On quota/rate-limit/API errors we stop, record the failed attempt, and do not retry or switch providers.
 
@@ -86,6 +86,15 @@ Explored 2026-10-25 for an Amazon Nova split. In `eu-north-1` the bare model IDs
 (`on-demand throughput isn't supported`) — Nova requires a cross-region inference profile such as
 `eu.amazon.nova-lite-v1:0`. Invocation was additionally blocked by AWS account verification, so no
 switch was made and the code still runs a single model.
+
+**Update 2026-10-26 — a second provider, still one per run.** Account verification cleared, so
+`src/bedrock.ts` was added behind the same contract as Gemini: one `src/llm.ts` prompt, schema and
+acceptance rule for both, chosen only by `MODEL_PROVIDER`, no implicit selection and no fallback
+between them. A live run filed `INQ-00058` using `eu.amazon.nova-lite-v1:0` — extraction plus draft
+reply, 2 calls, $0.0001, both attempts written to `model_budget` per model. Structured output comes
+from a forced `toolChoice`, so an answer that does not conform is a failure (`MODEL_NO_STRUCTURED_EXTRACTION`)
+rather than prose to be parsed. The single-model rule survived as "the provider is explicit and
+logged", which is the property that actually matters; a silent switch would still be rejected.
 
 ## 9. LangGraph is a recoverable orchestrator, not an approval workflow
 
