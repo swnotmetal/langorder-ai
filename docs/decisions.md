@@ -187,6 +187,7 @@ Not gaps we forgot. Adding any of these would not improve what the repository de
 | OCR or multimodal PDF parsing | The text-layer limit is stated, and a scanned attachment now fails with `NO_PDF_TEXT` instead of silently producing nothing. |
 | Spam/DDoS defence inside the app | The inbox is the trust boundary, the model account is the cost boundary. See #10. |
 | A second model provider today | Policy blocked, then AWS verification blocked; see #8. |
+| A no-ERP runtime backend (SQLite / Sheets / Excel) | The pipeline already runs ERP-free in the failure lab. A real second store means re-building the review queue, permissions, dedup and audit that ERPNext gives for free — and it weakens the one thing this repository exists to demonstrate. |
 
 ## Negative results, kept on purpose
 
