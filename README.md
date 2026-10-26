@@ -6,9 +6,18 @@ Sales teams already work in an ERP. This project reads a customer mail, proposes
 ERPNext, and waits. Every approval and every reply stays where the sales person already works. All
 names, mail and records here are fictional.
 
-```
-mail → extract, with source evidence → deterministic checks → ERP draft or work item
-                                                           → human submits, cancels or qualifies in ERPNext
+```mermaid
+flowchart LR
+  M[Mail + text PDF] --> X[Extract only what it can quote]
+  X --> C[Look up catalogue and stock<br/>read-only]
+  C --> I{What is it?}
+  I -->|a real order| O[Draft Sales Order]
+  I -->|a question| Q[Inquiry with a draft reply]
+  I -->|not representable| T[ToDo for a human]
+  O --> H1[Sales person submits<br/>or cancels]
+  Q --> H2[Sales person<br/>Qualifies]
+  H2 --> S[Reply sent<br/>Quotation drafted]
+  T --> H3[Sales person<br/>completes it]
 ```
 
 ## What it does
