@@ -33,7 +33,7 @@
     "@langchain/langgraph-checkpoint-sqlite": "^1.0.4",
     "langsmith": "^0.11.0",
     "mailparser": "^3.9.38",
-    "pdfjs-dist": "^6.3.289",
+    "pdfjs-dist": "^6.4.299",
     "zod": "^4.6.5"
   },
   "devDependencies": {
